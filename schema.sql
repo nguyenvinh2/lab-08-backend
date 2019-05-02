@@ -7,16 +7,16 @@ CREATE TABLE IF NOT EXISTS locations (
   search_query VARCHAR(255), 
   formatted_query VARCHAR(255), 
   latitude NUMERIC(8, 6), 
-  longitude NUMERIC(9, 6)
-  created_at INT
+  longitude NUMERIC(9, 6),
+  created_at BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS weathers ( 
   id SERIAL PRIMARY KEY, 
   forecast VARCHAR(255), 
   time VARCHAR(255), 
-  created_at INT,
-  location_id INTEGER NOT NULL REFERENCES locations(id)
+  created_at BIGINT,
+  location_id INTEGER,
   location VARCHAR(255)
 );
 
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS events (
   link VARCHAR(255),
   event_date VARCHAR(255),
   summary TEXT,
-  created_at INT,
-  location_id INTEGER NOT NULL REFERENCES locations(id),
+  created_at BIGINT,
+  location_id INTEGER,
   location VARCHAR(255)
 );
