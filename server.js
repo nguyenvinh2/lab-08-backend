@@ -63,13 +63,8 @@ function queryTable(table, request, response) {
   return client.query(sql, values)
     .then(result => {
       if (result.rowCount > 0) {
-        if (table === 'weathers') {
-          const weatherSummaries = result.rows.map(day => new Weather(day, day.location));
-          response.send(weatherSummaries);
-        } else if (table === 'events') {
-          const eventSummaries = result.rows.map(event => new Event(event, event.location));
-          response.send(eventSummaries);
-        }
+        console.log(result.rows);
+        response.send(result.rows);
       } else {
         if (table === 'weathers') {
           getWeatherAPI(request, response);
@@ -92,8 +87,8 @@ function getWeatherAPI(req, res) {
       //make map one liner
       const weatherSummaries = result.body.daily.data.map(data => {
         const day = new Weather(data, req.query.data.search_query);
-        const SQL = `INSERT INTO weathers (summary, time, location) VALUES ($1, $2, $3);`;
-        const values = [data.summary, data.time, day.location];
+        const SQL = `INSERT INTO weathers (forecast, time, location) VALUES ($1, $2, $3);`;
+        const values = [data.summary, day.time, day.location];
         client.query(SQL, values);
         return day;
       });
