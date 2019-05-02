@@ -58,11 +58,17 @@ function queryLocation(request, response) {
 }
 
 function queryTable(table, request, response) {
-  let sql = `SELECT * FROM ${table} WHERE location = $1`;
+  let weatherSQL = 'SELECT * FROM weathers WHERE location = $1;';
+  let eventsSQL = 'SELECT * FROM events WHERE location = $1;';
+
+  let sql = table === 'weathers'? weatherSQL: eventsSQL;
+
   let values = [request.query.data];
   return client.query(sql, values)
     .then(result => {
+      console.log(result);
       if (result.rowCount > 0) {
+        console.log('INSIDE there is data in table part of if/else');
         if (table === 'weathers') {
           const weatherSummaries = result.map(day => new Weather(day, day.location));
           response.send(weatherSummaries);
