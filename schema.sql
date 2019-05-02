@@ -12,14 +12,15 @@ CREATE TABLE IF NOT EXISTS weathers (
   forecast VARCHAR(255), 
   time VARCHAR(255), 
   created_at INT,
-  location_id INTEGER NOT NULL REFERENCES locations(id) 
+  location_id INTEGER NOT NULL REFERENCES locations(id)
+  location VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS events (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255),
   link VARCHAR(255),
-  event_date INT,
+  event_date VARCHAR(255),
   summary TEXT,
   created_at INT,
   location_id INTEGER NOT NULL REFERENCES locations(id)

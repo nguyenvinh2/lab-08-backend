@@ -34,7 +34,7 @@ function locationApp(request, response) {
     .then(result => {
       const location = new Location(request, result);
       let insertSQL = 'INSERT INTO locations ( search_query, formatted_query, latitude, longitude ) VALUES ( $1, $2, $3, $4 );';
-      let insertParams = [ location.search_query, location.formatted_query, location.latitude, location.longitude ];
+      let insertParams = [location.search_query, location.formatted_query, location.latitude, location.longitude];
       client.query(insertSQL, insertParams);
       // return location;
       response.send(location);
@@ -43,67 +43,90 @@ function locationApp(request, response) {
 }
 
 //find in location table function
-function queryLocation(request,response){
+function queryLocation(request, response) {
   let sql = 'SELECT * FROM locations WHERE search_query = $1;';
-  let params = [ request.query.data ];
-  return client.query(sql, params).then( result => {
-    console.log(request.query.data);
-    if(result.rowCount > 0){
-      
-      console.log(result.rows[0]);
-      
-      response.send(result.rows[0]);
-    }else{
-      locationApp(request,response);
-    }
-  });
+  let params = [request.query.data];
+  return client.query(sql, params)
+    .then(result => {
+      if (result.rowCount > 0) {
+        response.send(result.rows[0]);
+      } else {
+        locationApp(request, response);
+      }
+    })
+    .catch(error => handleError(error, response));
 }
 
-function queryTable(table,params){
-  let sqlLoc = 'SELECT location_id FROM locations WHERE search_query = $2;';
-  let sql = 'SELECT * FROM $1 WHERE search_query = $2;';
-  let params = [ request.query.data ];
-  return client.query(sql, params).then( result => {
-    console.log(request.query.data);
-    if(result.rowCount > 0){
-      
-      console.log(result.rows[0]);
-      
-      response.send(result.rows[0]);
-    }else{
-      locationApp(request,response);
-    }
-  });
+function queryTable(table, request, response) {
+  let sql = `SELECT * FROM ${table} WHERE location = $1`;
+  let values = [request.query.data];
+  return client.query(sql, values)
+    .then(result => {
+      if (result.rowCount > 0) {
+        if (table === 'weathers') {
+          const weatherSummaries = result.map(day => new Weather(day, day.location));
+          response.send(weatherSummaries);
+        } else if (table === 'events') {
+          const eventSummaries = result.map(event => new Event(event, event.location));
+          response.send(eventSummaries);
+        }
+      } else {
+        if (table === 'weathers') {
+          getWeatherAPI(request, response);
+        } else if (table === 'events') {
+          getEventsAPI(request, response);
+        }
+      }
+    })
+    .catch(error => handleError(error, response));
 }
 
-//creates darksky API url, then uses superagent to make call
-//then generates array of "Weather" objects to send to front end
 function weatherApp(req, res) {
+  queryTable('weathers', req, res);
+}
+
+function getWeatherAPI(req, res) {
   const darkSkyUrl = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
   return superagent.get(darkSkyUrl)
     .then(result => {
       //make map one liner
-      const weatherSummaries = result.body.daily.data.map(day => new Weather(day));
+      const weatherSummaries = result.body.daily.data.map(data => {
+        const day = new Weather(data, req.query.data.search_query);
+        const SQL = `INSERT INTO weathers (forecast, time, location) VALUES ($1, $2, $3);`;
+        const values = [day.forecast, data.time, day.location];
+        client.query(SQL, values);
+        return day;
+      });
       res.send(weatherSummaries);
     })
     .catch(error => handleError(error, res));
 }
 
 function eventsApp(req, res) {
+  queryTable('events', req, res);
+}
+
+function getEventsAPI(req, res) {
   const eventBriteUrl = `https://www.eventbriteapi.com/v3/events/search/?location.within=10mi&location.latitude=${req.query.data.latitude}&location.longitude=${req.query.data.longitude}&token=${process.env.EVENTBRITE_API_KEY}`;
   return superagent.get(eventBriteUrl)
     .then(result => {
-      const eventSummaries = result.body.events.map(event => new Event(event));
+      const eventSummaries = result.body.events.map(event => {
+        const eventItem = new Event(event, req.query.data.search_query);
+        const SQL = `INSERT INTO events (link, name, event_date, summary, location) VALUES ($1, $2, $3, $4, $5);`;
+        const values = [eventItem.link, eventItem.name, event.start.local, eventItem.summary, eventItem.location];
+        client.query(SQL, values);
+        return eventItem;
+      });
       res.send(eventSummaries);
     })
     .catch(error => handleError(error, res));
 }
-
 function handleError(err, res) {
   if (res) res.status(500).send('Internal 500 error!');
 }
 
-function Weather(day) {
+function Weather(day, location) {
+  this.location = location;
   this.time = new Date(day.time * 1000).toDateString();
   this.forecast = day.summary;
   this.created_at = Date.now();
@@ -117,7 +140,8 @@ function Location(request, result) {
   this.longitude = result.body.results[0].geometry.location.lng;
 }
 
-function Event(data) {
+function Event(data, location) {
+  this.location = location;
   this.link = data.url;
   this.name = data.name.text;
   this.event_date = new Date(data.start.local).toDateString();
