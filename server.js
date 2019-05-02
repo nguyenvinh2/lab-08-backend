@@ -59,17 +59,12 @@ function queryLocation(request, response) {
 
 function queryTable(table, request, response) {
   let sql = `SELECT * FROM ${table} WHERE location = $1`;
-  let values = [request.query.data];
+  let values = [request.query.data.search_query];
   return client.query(sql, values)
     .then(result => {
       if (result.rowCount > 0) {
-        if (table === 'weathers') {
-          const weatherSummaries = result.map(day => new Weather(day, day.location));
-          response.send(weatherSummaries);
-        } else if (table === 'events') {
-          const eventSummaries = result.map(event => new Event(event, event.location));
-          response.send(eventSummaries);
-        }
+        console.log(result.rows);
+        response.send(result.rows);
       } else {
         if (table === 'weathers') {
           getWeatherAPI(request, response);
@@ -93,7 +88,7 @@ function getWeatherAPI(req, res) {
       const weatherSummaries = result.body.daily.data.map(data => {
         const day = new Weather(data, req.query.data.search_query);
         const SQL = `INSERT INTO weathers (forecast, time, location) VALUES ($1, $2, $3);`;
-        const values = [day.forecast, data.time, day.location];
+        const values = [data.summary, day.time, day.location];
         client.query(SQL, values);
         return day;
       });
@@ -113,7 +108,7 @@ function getEventsAPI(req, res) {
       const eventSummaries = result.body.events.map(event => {
         const eventItem = new Event(event, req.query.data.search_query);
         const SQL = `INSERT INTO events (link, name, event_date, summary, location) VALUES ($1, $2, $3, $4, $5);`;
-        const values = [eventItem.link, eventItem.name, event.start.local, eventItem.summary, eventItem.location];
+        const values = [event.url, event.name.text, event.start.local, event.description.text, eventItem.location];
         client.query(SQL, values);
         return eventItem;
       });
@@ -121,6 +116,7 @@ function getEventsAPI(req, res) {
     })
     .catch(error => handleError(error, res));
 }
+
 function handleError(err, res) {
   if (res) res.status(500).send('Internal 500 error!');
 }
