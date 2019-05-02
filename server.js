@@ -4,10 +4,14 @@ const express = require('express');
 const superagent = require('superagent');
 const cors = require('cors');
 const app = express();
+const pg = require('pg');
 
 app.use(cors());
 require('dotenv').config();
 const PORT = process.env.PORT || 3000;
+
+const client = new pg.Client(process.env.DATABASE_URL);
+client.connect();
 
 app.use(express.static('./'));
 
@@ -15,7 +19,7 @@ app.get('/', (request, response) => {
   response.status(200).send('Connected!');
 });
 
-app.get('/location', locationApp);
+app.get('/location', queryLocation);
 
 app.get('/weather', weatherApp);
 
@@ -29,9 +33,47 @@ function locationApp(request, response) {
   return superagent.get(googleMapsUrl)
     .then(result => {
       const location = new Location(request, result);
+      let insertSQL = 'INSERT INTO locations ( search_query, formatted_query, latitude, longitude ) VALUES ( $1, $2, $3, $4 );';
+      let insertParams = [ location.search_query, location.formatted_query, location.latitude, location.longitude ];
+      client.query(insertSQL, insertParams);
+      // return location;
       response.send(location);
     })
     .catch(error => handleError(error, response));
+}
+
+//find in location table function
+function queryLocation(request,response){
+  let sql = 'SELECT * FROM locations WHERE search_query = $1;';
+  let params = [ request.query.data ];
+  return client.query(sql, params).then( result => {
+    console.log(request.query.data);
+    if(result.rowCount > 0){
+      
+      console.log(result.rows[0]);
+      
+      response.send(result.rows[0]);
+    }else{
+      locationApp(request,response);
+    }
+  });
+}
+
+function queryTable(table,params){
+  let sqlLoc = 'SELECT location_id FROM locations WHERE search_query = $2;';
+  let sql = 'SELECT * FROM $1 WHERE search_query = $2;';
+  let params = [ request.query.data ];
+  return client.query(sql, params).then( result => {
+    console.log(request.query.data);
+    if(result.rowCount > 0){
+      
+      console.log(result.rows[0]);
+      
+      response.send(result.rows[0]);
+    }else{
+      locationApp(request,response);
+    }
+  });
 }
 
 //creates darksky API url, then uses superagent to make call
