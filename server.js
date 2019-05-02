@@ -63,7 +63,7 @@ function queryTable(table, request, response) {
   return client.query(sql, values)
     .then(result => {
       if (result.rowCount > 0) {
-        console.log(result.rows);
+        console.log(result.rowCount);
         response.send(result.rows);
       } else {
         if (table === 'weathers') {
