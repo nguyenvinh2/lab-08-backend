@@ -62,6 +62,7 @@ function queryTable(table, request, response) {
   let values = [request.query.data.search_query];
   return client.query(sql, values)
     .then(result => {
+      console.log(result);
       if (result.rowCount > 0) {
         console.log(result.rowCount);
         response.send(result.rows);
